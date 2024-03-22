@@ -19,26 +19,26 @@ private:
 	sf::Vector2f mousePosView;
 	sf::Font font;
 	GameState gameState;
-	short WIDTH;
-	short HEIGHT;
-	short variable;
-	std::string typeGame;
+
 	sf::Texture texture;
+
+	std::string typeGame;
+	std::string name;
 
 	std::fstream stream;
 
 	int basicVariable;
-
 	int frame;
-	bool vsync;
 
+	short WIDTH;
+	short HEIGHT;
+	short variable;
 	short player;
 	short sendPlayer;
+
 	bool start;
+	bool vsync;
 
-
-
-	std::string name;
 
 public:
 

@@ -75,11 +75,12 @@ void Start::initVariables()
     this->timeVariable = gui.getBasicVariable();
     this->timeVariable2 = gui.getBasicVariable();
 
-    if (gui.getBasicVariable() > 0)
+    if (gui.getBasicVariable() > -1)
     {
         time = sf::seconds(timeVariable);
         time2 = sf::seconds(timeVariable2);
     }
+    online->getSign() = 0;
 }
 
 void Start::functionForText(typeText number,std::string &text,sf::Color color,double size_x,double size_y)
@@ -115,7 +116,7 @@ void Start::addText()
     else
         this->functionForText(GAME_TYPE, gui.getTypeGame(), sf::Color::Red, 0.73, 0.1);
     this->functionForText(CLOCK, watch, sf::Color::White, 0.80, 0.3);
-    if (gui.getBasicVariable() == 0)
+    if (gui.getBasicVariable() == -1)
     {
         this->functionForText(FIRST_TIME, firstTime, sf::Color::White, 0.76, 0.35);
         this->functionForText(SECOND_TIME, secondTime, sf::Color::White, 0.76, 0.4);
@@ -274,7 +275,6 @@ void Start::updateButtonPanel()
 
 void Start::updateButton()
 {
-    std::cout<<online->GameOnline()<<std::endl;
     for (auto i : this->button)
     {
         if (!i.second->getBounds().contains(this->gui.getMousePos()))
@@ -311,6 +311,19 @@ void Start::updateButton()
                 {
                     this->updateButtonPanel();
                     this->gui.startStatus() = false;
+                    this->gui.getGameState() = MAIN_MENU;
+                    if (online->getHost() == true)
+                    {
+                        online->SendPacket(packetType::LEAVE, true);
+                        online->SendPacket(packetType::CLOSE_SERVER, true);
+                    }
+                    else if (online->getClient() == true)
+                    {
+                        online->SendPacket(packetType::LEAVE, true);
+                        online->SendPacket(packetType::MAIN_MENU, MAIN_MENU);
+                        online->SendPacket(packetType::DISCONNECT, online->getClientStatus());
+                        online->getLogOut() = true;
+                    }
                 }
             }
             else if (this->button["RESOLUTION"]->getBounds().contains(this->gui.getMousePos()))
@@ -397,16 +410,22 @@ void Start::updateButton()
                 gui.getWindow()->waitEvent(ev);
                 if (ev.type == sf::Event::MouseButtonReleased)
                 {
-                    this->gui.getVariable() = 0;
-                    gui.getGameState() = TYPE_GAME;
+                    this->gui.startStatus() = false;
+                    this->gui.getGameState() = MAIN_MENU;
                     if (online->getHost() == true)
-                        online->hostDisconnet();
+                    {
+                        online->SendPacket(packetType::LEAVE, true);
+                        online->SendPacket(packetType::CLOSE_SERVER, true);
+                    }
                     else if (online->getClient() == true)
+                    {
+                        online->SendPacket(packetType::LEAVE, true);
+                        online->SendPacket(packetType::MAIN_MENU, MAIN_MENU);
+                        online->SendPacket(packetType::DISCONNECT, online->getClientStatus());
                         online->getLogOut() = true;
-
+                    }
                 }
             }
-          
 }
 
 void Start::updateBoard()
@@ -473,9 +492,9 @@ void Start::updateBoard()
                         {
                             this->quad = gui.getPlayer();
                             this->gameMapUpdate[x] = this->quad;
-                            this->online->HostSendPacket("GET_PLAYER", gui.getPlayer());
-                            this->online->HostSendPacket("CLIENT", CLIENT);
-                            this->online->HostSendPacket("NR_TABLE", x);
+                            this->online->SendPacket(packetType::GET_PLAYER, gui.getPlayer());
+                            this->online->SendPacket(packetType::CLIENT, CLIENT);
+                            this->online->SendPacket(packetType::NR_TABLE, x);
                             online->changePlayer(CLIENT);                        
                             timeVariable = time.asSeconds();
                         }
@@ -483,9 +502,9 @@ void Start::updateBoard()
                         {
                             this->quad = gui.getPlayer();
                             this->gameMapUpdate[x] = this->quad;
-                            this->online->ClientSendPacket("GET_PLAYER", gui.getPlayer());
-                            this->online->ClientSendPacket("HOST", HOST);
-                            this->online->ClientSendPacket("NR_TABLE", x);
+                            this->online->SendPacket(packetType::GET_PLAYER, gui.getPlayer());
+                            this->online->SendPacket(packetType::HOST, HOST);
+                            this->online->SendPacket(packetType::NR_TABLE, x);
                             online->changePlayer(HOST);
                             timeVariable2 = time2.asSeconds();
                         }
@@ -518,7 +537,7 @@ void Start::updatePlayers()
 
 void Start::functionTime(sf::Time& time, std::string& watch)
 {
-    if (gui.getBasicVariable() == 0)
+    if (gui.getBasicVariable() == -1)
     {
         watch = "UNLIMITED";
     }
@@ -538,7 +557,7 @@ void Start::functionTime(sf::Time& time, std::string& watch)
 
 void Start::gameTime()
 {
-    if (gui.getBasicVariable() > 0)
+    if (gui.getBasicVariable() > -1)
     {
         if (online->GameOnline() == false)
         {
@@ -626,8 +645,19 @@ void Start::gameTime()
     
 }
 
+void Start::oponnentDisconnected()
+{
+    if (online->getLeaveFromGame() == true)
+    {
+        online->getLeaveFromGame() = false;
+        this->gui.startStatus() = false;
+    }
+}
+
 void Start::update()
 {
+    if (this->gui.getGameState() == GAMESTATS)
+        this->renderEndGame();
     this->gameTime();
     this->updateKeyboard();
     this->updateButton();
@@ -636,9 +666,7 @@ void Start::update()
     this->updateBoard();
     this->checkingBoard();
     this->updatePlayers();
-     if (this->gui.getGameState() == GAMESTATS)
-        this->renderEndGame();
-
+    this->oponnentDisconnected();
 }
 
 void Start::render(sf::RenderTarget* target)

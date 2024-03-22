@@ -34,8 +34,8 @@ void StatsWindow::initText()
 			{
 				this->std_text = "WINNER IS:\n      YOU";
 				if (circlePoints > crossPoints)
-					this->std_text2 = "RESULT MATCH:\n             YOU = " + 
-					std::to_string(circlePoints) + " Points\nOPONNENT = " + 
+					this->std_text2 = "RESULT MATCH:\n             YOU = " +
+					std::to_string(circlePoints) + " Points\nOPONNENT = " +
 					std::to_string(crossPoints) + " Points";
 				else
 					this->std_text2 = "RESULT MATCH:\n             YOU = " +
@@ -137,6 +137,15 @@ void StatsWindow::updateKeyboard()
 	}
 }
 
+void StatsWindow::oponnentDisconnected()
+{
+	if (online->getLeaveFromGame() == true)
+	{
+		online->getLeaveFromGame() = false;
+		this->gui.startStatus() = false;
+	}
+}
+
 void StatsWindow::buttonsClick(short& number)
 {
 	if (online->GameOnline() == false)
@@ -157,20 +166,34 @@ void StatsWindow::buttonsClick(short& number)
 	{
 		if (number == PLAY_AGAIN)
 		{
+			online->SendPacket(packetType::LEAVE, true);
+			this->gui.startStatus() = false;
 			if (online->getHost() == true)
 			{
 				this->gui.getGameState() = TYPE_GAME;
-				this->gui.startStatus() = false;
+				online->SendPacket(packetType::MULTIPLAYER, MULTIPLAYER);
 			}
 			else
 			{
+				online->SendPacket(packetType::TYPE_GAME, TYPE_GAME);
 				this->gui.getGameState() = MULTIPLAYER;
-				this->gui.startStatus() = false;
 			}
 		}
 		else
 		{
+			online->SendPacket(packetType::MAIN_MENU, MAIN_MENU);
+			this->gui.startStatus() = false;
 			this->gui.getGameState() = MAIN_MENU;
+			online->SendPacket(packetType::LEAVE, true);
+			if (online->getHost() == true)
+			{
+				online->SendPacket(packetType::CLOSE_SERVER, true);
+			}
+			else if (online->getClient() == true)
+			{
+				online->SendPacket(packetType::DISCONNECT, online->getClientStatus());
+				online->getLogOut() = true;
+			}
 		}
 	}
 }

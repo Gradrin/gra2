@@ -5,12 +5,33 @@
 #include <mutex>
 #include <any>
 #include"Gui.h"
-#include<atomic>
 #include<vector>
+#include<chrono>
 
 
-enum socketType :bool { HOST, CLIENT };
-enum sizeOfSocket :short { SOCKET_SIZE = 2 };
+enum socketType { HOST, CLIENT };
+
+enum class packetType : uint8_t
+{
+	BASIC,
+	BEST_OF_THREE,
+	BEST_OF_FIVE,
+	BEST_OF_SEVEN,
+	MAIN_MENU,
+	TYPE_GAME,
+	MULTIPLAYER,
+	VARIABLE,
+	BASIC_VARIABLE,
+	GET_SEND_PLAYER,
+	GET_PLAYER,
+	CLIENT,
+	HOST,
+	NR_TABLE,
+	START_STATUS,
+	DISCONNECT,
+	CLOSE_SERVER,
+	LEAVE
+};
 
 #define logl(x) std::cout << x << std::endl
 #define log(x) std::cout << x
@@ -22,11 +43,7 @@ private:
 	Gui& gui;
 
 
-	sf::Socket::Status status;
-
-	std::mutex mutex2;
-	std::vector<sf::TcpSocket*>* socket2;
-	sf::TcpSocket socket[SOCKET_SIZE];
+	sf::TcpSocket socket;
 
 	sf::IpAddress address = "localHost";
 
@@ -41,26 +58,30 @@ private:
 	bool connected;
 	bool host;
 
-	bool clientStatus;
+	//Flags to inform program when host or client is disconnect
+	bool disconnectHostStatus;
+	bool disconnectClientStatus;
+
 	bool logOut;
 
 	bool packetFlag;
 
 	//Flags for Start class
-	std::atomic<bool> gameOnline;
+	bool gameOnline;
 	bool turn;
 
 	int port;
 
 	int numberTable;
 	short sign;
-	sf::TcpSocket* socketX = new sf::TcpSocket();
-	bool x;
+
+	bool leaveFromGame;
+
 public:
 	sf::Packet packet;
 	sf::Packet packet2;
-	sf::Packet packet3;
 	sf::TcpSocket hostSocket;
+	bool clientInformationClose;
 
 	Online(Gui& gui)
 		:gui(gui)
@@ -72,7 +93,8 @@ public:
 		connection = false;
 		host = false;
 
-		clientStatus = false;
+		disconnectClientStatus = false;
+		disconnectHostStatus = false;
 
 		packetFlag = false;
 
@@ -81,6 +103,8 @@ public:
 		turn = HOST;
 		sign = 0;
 		logOut = false;
+		clientInformationClose = false;
+		leaveFromGame = false;
 	}
 
 	~Online()
@@ -88,11 +112,9 @@ public:
 
 	}
 
-
-
 	//Functions that return connection or hosting flag
 
-	const bool& Hosting() const
+	bool& Hosting() 
 	{
 		return this->hosting;
 	}
@@ -123,15 +145,6 @@ public:
 
 	//Functions that return sockets
 
-	const sf::TcpSocket& getSocket(bool& variable)const
-	{
-		return this->socket[variable];
-	}
-
-	sf::TcpSocket& getSo()
-	{
-		return this->socket[CLIENT];
-	}
 
 	//Functions that return turn flags
 
@@ -164,7 +177,7 @@ public:
 
 	//Functions that return variable
 
-	const int& getSign()const
+	short& getSign()
 	{
 		return this->sign;
 	}
@@ -176,12 +189,26 @@ public:
 
 	bool& getClientStatus()
 	{
-		return this->clientStatus;
+		return this->disconnectClientStatus;
+	}
+	bool& getHostStatus()
+	{
+		return this->disconnectHostStatus;
+	}
+
+	bool& getClientInformationClose()
+	{
+		return this->clientInformationClose;
 	}
 
 	bool& getLogOut()
 	{
 		return this->logOut;
+	}
+
+	bool& getLeaveFromGame()
+	{
+		return this->leaveFromGame;
 	}
 
 	//void functions
@@ -192,25 +219,30 @@ public:
 		{
 			if ((hosting == true) && (connected == false))
 			{
-				hosting = false;
 				if (listener.listen(port) == sf::Socket::Done)
 				{
-					logl(" Server is Started");
-					if (listener.accept(socket[HOST]) == sf::Socket::Done)
-					{
-						socket[HOST].setBlocking(false);
-						logl("Added client " << socket[HOST].getRemoteAddress() << ":" << socket[HOST].getRemotePort() << " on slot ");
-						host = true;
-					}
+					logl("Server is open");
+					hosting = false; 
+					host = true;
 				}
 				else
 					logl("Can not create the server");
-			}
 
+				if (host == true)
+				{
+					if (listener.accept(socket) == sf::Socket::Done)
+					{
+						gameOnline = true;
+						socket.setBlocking(false);
+						logl("Added clientH " << socket.getRemoteAddress() << ":" << socket.getRemotePort() << " on slot ");
+					}
+				}
+
+			}
 			if ((connection == true) && (host == false))
 			{
 				connection = false;
-				if (socket[CLIENT].connect(address, port) != sf::Socket::Done)
+				if (socket.connect(address, port) != sf::Socket::Done)
 				{
 					logl("Could not connect to the server\n");
 				}
@@ -218,104 +250,77 @@ public:
 				{
 					logl("Connected to the server\n");
 					connected = true;
+					gameOnline = true;
 				}
 			}
 
 			if ((connected == true) && (logOut == true))
 			{
-				socket[CLIENT].disconnect();
+				socket.disconnect();
 				logl("disconnection server");
 				logOut = false;
-
-
-			}
-			if ((host == true) && (connected == false))
-			{
-				auto flag = listener.accept(socket[CLIENT]);
-				switch (flag)
-				{
-				case sf::Socket::Done:
-					logl("The socket has sent / received the data" << socket[CLIENT].getRemoteAddress() << ":" << socket[CLIENT].getRemotePort());
-				case sf::Socket::NotReady:
-					logl("The socket is not ready to send / receive data yet ");
-				case::sf::Socket::Partial:
-					logl("The socket sent a part of the data. ");
-				case::sf::Socket::Disconnected:
-					logl("The TCP socket has been disconnected. ");
-				case::sf::Socket::Error:
-					logl("Error An unexpected error happened ");
-				default:
-					logl("something else \n");
-				}
+				connected = false;
 			}
 		}
-		if (sf::Keyboard::isKeyPressed(sf::Keyboard::L))
-			std::cout << clientStatus << std::endl;
 	}
 
 	void packetSystem()
 	{
 		while (true)
 		{
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::X))
-				std::cout << clientStatus << std::endl;
-			if (socket[CLIENT].receive(packet) == sf::Socket::Done)
+			if (socket.receive(packet) == sf::Socket::Done)
 			{
-				std::size_t receiving;
-				std::string information;
-				packet >> information >> receiving;
+				uint8_t variable;
+				size_t receiving;
+				packet >> variable >> receiving;
+				packetType information = static_cast<packetType>(variable);
 
-				if (information == "VARIABLE")
-					gui.getVariable() = receiving;
-				else if (information.find("GAME_TYPE") != std::string::npos)
-					gui.getTypeGame() = information.erase(0, 9);
-				else if (information == "BASIC_VARIABLE")
-					gui.getBasicVariable() = receiving;
-				else if (information == "GET_SEND_PLAYER")
-					gui.getPlayer() = receiving;
-
-				else if (information == "GET_PLAYER")
-					sign = receiving;
-				else if (information == "CLIENT")
-					turn = receiving;
-				else if (information == "NR_TABLE")
-					numberTable = receiving;
-
-				logl("receiving data!");
-				gameOnline = true;
-				packet.clear();
-
-			}
-			if (socket[HOST].receive(packet) == sf::Socket::Done)
-			{
-				std::size_t receiving;
-				std::string information;
-				packet >> information >> receiving;
-
-				if (information == "START_STATUS")
-					gui.startStatus() = receiving;
-
-				else if (information == "GET_PLAYER")
-					sign = receiving;
-				else if (information == "HOST")
-					turn = receiving;
-				else if (information == "NR_TABLE")
-					numberTable = receiving;
-				else if (information == "CONNECT")
-					clientStatus = true;
-
-				logl("receiving data!");
-				gameOnline = true;
+				switch(information)
+				{
+				case packetType::MAIN_MENU: {gui.getGameState() = MAIN_MENU; break; }
+				case packetType::TYPE_GAME: {gui.getGameState() = TYPE_GAME; break; }
+				case packetType::MULTIPLAYER: {gui.getGameState() = MULTIPLAYER; break; }
+				case packetType::BASIC: {gui.getTypeGame() = "BASIC"; break; }
+				case packetType::BEST_OF_THREE: {gui.getTypeGame() = "BEST_OF_THREE"; break; }
+				case packetType::BEST_OF_FIVE: {gui.getTypeGame() = "BEST_OF_FIVE"; break; }
+				case packetType::BEST_OF_SEVEN: {gui.getTypeGame() = "BEST_OF_SEVEN"; break; }
+				case packetType::VARIABLE: {gui.getVariable() = receiving; break; }
+				case packetType::BASIC_VARIABLE: {gui.getBasicVariable() = receiving; break; }
+				case packetType::GET_SEND_PLAYER: {gui.getPlayer() = receiving; break; }
+				case packetType::GET_PLAYER: {sign = receiving; break; }
+				case packetType::CLIENT: {turn = receiving; break; }
+				case packetType::HOST: {turn = receiving; break; }
+				case packetType::NR_TABLE: {numberTable = receiving; break; }
+				case packetType::START_STATUS: {gui.startStatus() = receiving; break; }
+				case packetType::DISCONNECT: {disconnectClientStatus = true; break; }
+				case packetType::CLOSE_SERVER: {clientInformationClose = true; break; }
+				case packetType::LEAVE: {leaveFromGame = receiving; break; }
+				}
 				packet.clear();
 			}
-			if (clientStatus == true)
+			if (clientInformationClose == true)
 			{
-				logl("Added client " << socket[HOST].getRemoteAddress() << ":" << socket[HOST].getRemotePort() << " on slot ");
-				logl("Added client C " << socket[CLIENT].getRemoteAddress() << ":" << socket[HOST].getRemotePort() << " on slot ");
-				socket[CLIENT].disconnect();
-				logl("Added client " << socket[HOST].getRemoteAddress() << ":" << socket[HOST].getRemotePort() << " on slot ");
-				logl("Added client C " << socket[CLIENT].getRemoteAddress() << ":" << socket[HOST].getRemotePort() << " on slot ");
-				clientStatus = false;
+				logl("Host closed server");
+				clientInformationClose = false;
+				socket.disconnect();
+				connected = false;
+				
+				connection = false;
+			}
+			
+			if (disconnectClientStatus == true)
+			{
+				logl("Disconnect Client");
+				socket.disconnect();
+				disconnectClientStatus = false;
+			}
+			if (disconnectHostStatus == true)
+			{
+				logl("Close Server");
+				listener.close();
+				socket.disconnect();
+				disconnectHostStatus = false;
+				host = false;
 			}
 		}
 	}
@@ -332,20 +337,13 @@ public:
 
 	//Functions to send information to sockets
 
-	void HostSendPacket(std::string information, std::size_t variable)
+	void SendPacket(packetType information, size_t variable)
 	{
-
-		packet2 << information << variable;
-		socket[HOST].send(packet2);
+		packet2 << static_cast<uint8_t>(information) << variable;
+		socket.send(packet2);
 		packet2.clear();
 	}
 
-	void ClientSendPacket(std::string information, std::size_t variable)
-	{
-		packet2 << information << variable;
-		socket[CLIENT].send(packet2);
-		packet2.clear();
-	}
 
 	void changePlayer(bool player)
 	{
@@ -357,11 +355,10 @@ public:
 
 	}
 
-
 	void hostDisconnet()
 	{
 		listener.close();
-		socket[HOST].disconnect();
+		socket.disconnect();
 	}
 
 };

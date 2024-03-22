@@ -149,6 +149,7 @@ const short& Gui::getWIDTH() const
 	 return this->start;
  }
 
+
  std::string& Gui::getTypeGame()
  {
 	 return this->typeGame;

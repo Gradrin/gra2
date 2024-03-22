@@ -3,7 +3,7 @@
 
 void TypeGame::initVariables()
 {
-
+	this->type = packetType::BASIC;
 }
 
 void TypeGame::addBoxs()
@@ -77,6 +77,7 @@ void TypeGame::buttonClick(int& number, int& buttonNumber, sf::String time)
 	{
 		this->gui.getVariable() = buttonNumber + 1;
 		this->gui.getTypeGame() = box[number]->buttonGetText(buttonNumber);
+		type = static_cast<packetType>(buttonNumber);
 		this->flag[number] = true;
 		break;
 	}
@@ -84,7 +85,8 @@ void TypeGame::buttonClick(int& number, int& buttonNumber, sf::String time)
 	{
 		if (buttonNumber == 0)
 		{
-			gui.getBasicVariable() = 0;
+			gui.getBasicVariable() = -1;
+			this->flag[number] = true;
 			break;
 		}
 		else
@@ -189,10 +191,10 @@ void TypeGame::buttonFunctionUpdate(short& number)
 		}
 		else if (online->getHost() == true)
 		{
-			online->HostSendPacket("VARIABLE", gui.getVariable());
-			online->HostSendPacket("GAME_TYPE" + gui.getTypeGame(), 0);
-			online->HostSendPacket("BASIC_VARIABLE", gui.getBasicVariable());
-			online->HostSendPacket("GET_SEND_PLAYER", gui.getSendPlayer());
+			online->SendPacket(packetType::VARIABLE, gui.getVariable());
+			online->SendPacket(type, 0);
+			online->SendPacket(packetType::BASIC_VARIABLE, gui.getBasicVariable());
+			online->SendPacket(packetType::GET_SEND_PLAYER, gui.getSendPlayer());
 		}
 	}
 	else
@@ -229,9 +231,17 @@ void TypeGame::buttonsUpdate()
 	}
 }
 
+void TypeGame::resetVariables()
+{
+	this->gui.getVariable() = AMOUNT;
+	this->gui.getTypeGame() = "";
+	this->gui.getBasicVariable() = NONE;
+	this->gui.getPlayer() = 0;
+	this->gui.startStatus() = false;
+}
+
 void TypeGame::update()
 {
-	
 	this->gui.mousePosition();
 	this->keyUpdate();
 	this->boxesUpdate();
@@ -250,7 +260,7 @@ void TypeGame::startGame(short &variable)
 		this->start[variable]->render(gui.getWindow());
 		this->gui.getWindow()->display();
 	}
-	this->online->gameOnlineStatus(false);
+	delete start[variable];
 }
 
 void TypeGame::render(sf::RenderTarget* target)

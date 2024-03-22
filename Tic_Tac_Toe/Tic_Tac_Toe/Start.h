@@ -111,6 +111,7 @@ public:
 	void checkingBoardContinued(sign SIGN,int &j, int &i,const int &width );
 	void functionTime(sf::Time& time, std::string& zegar);
 	void gameTime();
+	void oponnentDisconnected();
 	void update();
 
 

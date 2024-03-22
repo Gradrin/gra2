@@ -12,7 +12,7 @@ private:
 
 	Gui& gui;
 	Online* online;
-	sf::Sprite *backgroundSign;
+	sf::Sprite* backgroundSign;
 	sf::Texture sign;
 	sf::Text text;
 	sf::Text text2;
@@ -25,10 +25,10 @@ private:
 
 	enum buttons :short { BACK, PLAY_AGAIN, SIZE };
 
-	Button *button[SIZE];
+	Button* button[SIZE];
 
-	short &circlePoints;
-	short &crossPoints;
+	short& circlePoints;
+	short& crossPoints;
 
 	//Constructor's functions
 	void initText();
@@ -40,6 +40,7 @@ public:
 
 	//update functions
 	void updateKeyboard();
+	void oponnentDisconnected();
 	void buttonsClick(short& number);
 	void buttonsUpdate();
 	void update();
@@ -48,4 +49,3 @@ public:
 	void render(sf::RenderTarget* target);
 	void buttonsRender();
 };
-

@@ -40,6 +40,8 @@ void Game::keyboardUpdate()
 		this->gui.getWindow()->close();
 }
 
+
+
 void Game::buttonsClick(short& number)
 {
 	this->gui.getGameState() = static_cast<GameState>(number);
@@ -108,24 +110,35 @@ void Game::statusRender()
 	{
 		this->gameType = new TypeGame(gui, online);
 		statusRenderFunction(gui.getGameState(), gameType);
+		if (online->getHost() == true)
+		{
+			online->SendPacket(packetType::CLOSE_SERVER, true);
+			online->Hosting() = false;
+			online->getHostStatus() = true;
+			this->online->gameOnlineStatus(false);
+		}
 		break; 
 	}
 	case MULTIPLAYER: 
 	{
 		this->multiplayer = new Multiplayer(gui, online, start);
 		statusRenderFunction(gui.getGameState(), multiplayer);
+		this->online->gameOnlineStatus(false);
+		delete multiplayer;
 		break;
 	}
 	case RESOLUTION: 
 	{
 		this->resolution = new Resolution(gui);
 		statusRenderFunction(gui.getGameState(), resolution);
+		delete resolution;
 		break;
 	}
 	case INTRODUCTION: 
 	{
 		this->introduction = new Introduction(gui);
 		statusRenderFunction(gui.getGameState(), introduction);
+		delete introduction;
 		break;
 	}
 	case EXIT:
@@ -148,10 +161,9 @@ void Game::render()
 
 void Game::run()
 {
-	
 	std::thread connectionThread(&Online::ConnectClients, online);
 	std::thread forPacked(&Online::packetSystem, online);
-
+	
 	while (this->gui.getWindow()->isOpen())
 	{
 		this->update();

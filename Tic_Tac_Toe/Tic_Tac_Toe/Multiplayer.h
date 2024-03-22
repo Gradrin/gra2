@@ -65,6 +65,8 @@ public:
 	void createPanel();
 	void deletePanel();
 
+	void resetVariables();
+
 	void panelCreateText(short number, sf::Color color, short sizeFont, std::string text, float size_x, float size_y); //Create panel after click button[JOIN]
 	void buttonPanelUpdate();
 	void panelUpdate();

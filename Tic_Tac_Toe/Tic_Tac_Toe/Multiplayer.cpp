@@ -19,7 +19,7 @@ void Multiplayer::variables()
 
 	this->isClicked = false;
 
-
+	
     this->panel = false;
 	this->waitingPanel = new Panels(gui);
 }
@@ -198,6 +198,15 @@ void Multiplayer::deletePanel()
 	delete panelDisconnect;
 }
 
+void Multiplayer::resetVariables()
+{
+	this->gui.getVariable() = AMOUNT;
+	this->gui.getTypeGame() = "";
+	this->gui.getBasicVariable() = NONE;
+	this->gui.getPlayer() = 0;
+	this->gui.startStatus() = false;
+}
+
 void Multiplayer::panelCreateText(short number, sf::Color color, short sizeFont, std::string text, float size_x, float size_y)
 {
 	this->panelText[number] = new sf::Text;
@@ -235,7 +244,7 @@ void Multiplayer::buttonPanelUpdate()
 			if (panelDisconnect->getBounds().contains(this->gui.getMousePos()))
 				panelDisconnect->setColor(panelDisconnect->getClick());
 
-		if ((gui.getTypeGame() != "") && (gui.getBasicVariable() > NONE) && (gui.getPlayer() > NONE))
+		if ((gui.getTypeGame() != "") && ((gui.getBasicVariable() > NONE) || (gui.getBasicVariable() == -1)) && (gui.getPlayer() > NONE))
 		{
 			this->panelStart->setColor(panelStart->getBasic());
 		}
@@ -251,7 +260,7 @@ void Multiplayer::buttonPanelUpdate()
 					{
 						this->deletePanel();
 						this->gui.startStatus() = true;
-						this->online->ClientSendPacket("START_STATUS", gui.startStatus());
+						this->online->SendPacket(packetType::START_STATUS, gui.startStatus());
 					}
 				}
 		}
@@ -263,8 +272,9 @@ void Multiplayer::buttonPanelUpdate()
 			if (ev.type == sf::Event::MouseButtonReleased)
 			{
 				this->deletePanel();
-				online->ClientSendPacket("CONNECT", online->getClientStatus());
+				online->SendPacket(packetType::DISCONNECT, online->getClientStatus());
 				online->getLogOut() = true;
+				online->gameOnlineStatus(false);
 			}
 		}
 }
@@ -275,6 +285,8 @@ void Multiplayer::panelUpdate()
 		this->panelText[G_TYPE_I]->setString(gui.getTypeGame());
 	if (gui.getBasicVariable() > NONE)
 		this->panelText[TIME_I]->setString(std::to_string(gui.getBasicVariable() / 60) + " minuts");
+	else if (gui.getBasicVariable() == -1)
+		this->panelText[TIME_I]->setString("unlimited");
 	if (gui.getPlayer() == FIRST_PLAYER)
 		this->panelText[PLAYER_I]->setString("First player");
 	else if (gui.getPlayer() == SECOND_PLAYER)
@@ -282,6 +294,17 @@ void Multiplayer::panelUpdate()
 
 	this->buttonPanelUpdate();
 
+	if (this->online->getClient() == false) 
+	{
+		panel = false;
+		delete panelStart;
+		delete panelDisconnect;
+		for (auto i : this->panelText)
+		{
+			delete i;
+		}
+		this->gui.getGameState() = MAIN_MENU;
+	}
 }
 
 
@@ -309,21 +332,11 @@ void Multiplayer::buttonUpdate()
 			if (ev.type == sf::Event::MouseButtonReleased)
 			{
 				online->IsConnectionVariable(true);
-				online->ClientSendPacket("CONNECT", online->getClientStatus());
-				this->createPanel();
+				gui.getWindow()->waitEvent(ev);
+				if (online->getClient() == true)
+					this->createPanel();
 			}
 		}
-
-	if (this->online->getClient() == false)
-	{
-		panel = false;
-		delete panelStart;
-		delete panelDisconnect;
-		for (auto i : this->panelText)
-		{
-			delete i;
-		}
-	}
 
 	if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
 		if (this->button[HOST]->getBounds().contains(this->gui.getMousePos()))
@@ -332,6 +345,7 @@ void Multiplayer::buttonUpdate()
 			if (ev.type == sf::Event::MouseButtonReleased)
 			{
 					this->online->HostingVariable(true);
+					this->online->gameOnlineStatus(true);
 					this->gui.getGameState() = TYPE_GAME;
 			}
 		}
@@ -407,6 +421,8 @@ void Multiplayer::startGame()
 		this->start->render(gui.getWindow());
 		this->gui.getWindow()->display();
 	}
+	this->resetVariables();
 	if (gui.getGameState() == MULTIPLAYER)
 	this->createPanel();
+	delete start;
 }
